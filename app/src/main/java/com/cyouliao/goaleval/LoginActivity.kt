@@ -22,6 +22,7 @@ import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 
@@ -73,9 +74,12 @@ class LoginActivity : AppCompatActivity() {
         Log.d("LoginActivity", "Call: localDataLogin")
         val client = HttpClient(CIO)
         lifecycleScope.launch {
-            val response: HttpResponse = client.post("https://goal-eval-test.cyouliao.com/api_test.php") {
-                setBody("a=009&b=hello")
-                // Post
+            val response: HttpResponse = client.post("https://goal-eval-test.cyouliao.com/login_android.php") {
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody(FormDataContent(Parameters.build {
+                    append("exp_id", expID)
+                    append("token", token)
+                }))
             }
             Log.d("LoginActivity", "StatusCode: ${response.status}")
             if (response.status.isSuccess()) {
