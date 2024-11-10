@@ -1,6 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+//    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.org.jetbrains.kotlin.android)
+    alias(libs.plugins.compose.compiler)
+//    kotlin("jvm") version "2.0.20" // or kotlin("multiplatform") or any other kotlin plugin
+    kotlin("plugin.serialization") version "2.0.20"
 }
 
 android {
@@ -50,6 +54,10 @@ android {
     }
 }
 
+repositories {
+//    mavenCentral()
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -83,5 +91,10 @@ dependencies {
     // Ktor
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+
+    // kotlinx serialization
+    implementation(libs.kotlinx.serialization.json)
 
 }

@@ -25,6 +25,9 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.Serializable
 
 const val PREFERENCES_DATASTORE_NAME = "LOGIN_DATA"
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = PREFERENCES_DATASTORE_NAME)
@@ -35,6 +38,17 @@ class LoginActivity : AppCompatActivity() {
         val LOGIN_DATA_KEY_EXP_ID = stringPreferencesKey("EXP_ID")
         val LOGIN_DATA_KEY_TOKEN = stringPreferencesKey("TOKEN")
     }
+
+    @Serializable
+    data class ResponseBodyHeaders(val status: String, val errorMsg: String)
+    @Serializable
+    data class ResponseBodyContentsTokenLogin(val isLogin: Boolean)
+    @Serializable
+    data class ResponseBodyContentsPasswordLogin(val isLogin: Boolean, val expID: String, val token: String)
+    @Serializable
+    data class ResponseBodyTokenLogin(val headers: ResponseBodyHeaders, val contents: ResponseBodyContentsTokenLogin)
+    @Serializable
+    data class ResponseBodyPasswordLogin(val headers: ResponseBodyHeaders, val contents: ResponseBodyContentsPasswordLogin)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +86,11 @@ class LoginActivity : AppCompatActivity() {
 
     private fun localDataLogin(expID: String, token: String) {
         Log.d("LoginActivity", "Call: localDataLogin")
-        val client = HttpClient(CIO)
+        val client = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
         lifecycleScope.launch {
             val response: HttpResponse = client.post("https://goal-eval-test.cyouliao.com/login_android.php") {
                 contentType(ContentType.Application.FormUrlEncoded)
@@ -83,7 +101,10 @@ class LoginActivity : AppCompatActivity() {
             }
             Log.d("LoginActivity", "StatusCode: ${response.status}")
             if (response.status.isSuccess()) {
-                Log.d("LoginActivity", "ResponseBody: ${response.body<String>()}")
+                val responseBody: ResponseBodyTokenLogin = response.body()
+                Log.d("LoginActivity", "headers: ${responseBody.headers}")
+                Log.d("LoginActivity", "status:\t${responseBody.headers.status}\nerrorMsg:\t${responseBody.headers.errorMsg}")
+//                Log.d("LoginActivity", "ResponseBody: ${response.body<String>()}")
             } else {
                 Log.d("LoginActivity", "ResponseCode: Bad")
             }
