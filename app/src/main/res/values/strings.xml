@@ -57,4 +57,11 @@
     <string name="tvLoginTitle">健康上網APP</string>
     <string name="tvNetworkUnconnectedText">連線失敗，請確認您的網路連線狀態，確保連線至網際網路後再重試。</string>
     <string name="btnNetworkConnectRetryText">重試</string>
+    <string name="etRegisterHintText">研究編號請向研究人員詢問</string>
+    <string name="etRegisterExpIDHintText">研究編號</string>
+    <string name="etRegisterPasswordHintText">設定登入密碼</string>
+    <string name="etRegisterPasswordConfirmHintText">再次輸入密碼</string>
+    <string name="etRegisterStdIDHintText">學號</string>
+    <string name="btnRegisterButtonText">註冊</string>
+    <string name="tvRegisterPasswordHintText">密碼請設定至少8個字元</string>
 </resources>

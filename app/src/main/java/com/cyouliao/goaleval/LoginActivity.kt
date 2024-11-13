@@ -1,6 +1,7 @@
 package com.cyouliao.goaleval
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -8,10 +9,12 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.text.isDigitsOnly
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +31,7 @@ import io.ktor.http.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 const val PREFERENCES_DATASTORE_NAME = "LOGIN_DATA"
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = PREFERENCES_DATASTORE_NAME)
@@ -42,7 +46,7 @@ class LoginActivity : AppCompatActivity() {
     @Serializable
     data class ResponseBodyHeaders(val status: String, val errorMsg: String)
     @Serializable
-    data class ResponseBodyContentsTokenLogin(val isLogin: Boolean)
+    data class ResponseBodyContentsTokenLogin(val isLogin: Boolean, val expID: String, val token: String)
     @Serializable
     data class ResponseBodyContentsPasswordLogin(val isLogin: Boolean, val expID: String, val token: String)
     @Serializable
@@ -52,8 +56,6 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        Log.d("LoginActivity", "LoginActivity has been created.")
 
         // Check local storage login data
         val loginDataExpID: Flow<String> = this.dataStore.data.map {
@@ -76,16 +78,29 @@ class LoginActivity : AppCompatActivity() {
 
         // disable login form entries
         disableLoginForm()
-        Toast.makeText(this, "正在嘗試使用內部儲存資料登入...", Toast.LENGTH_SHORT).show()
 
         // check local login data
         checkLoginDataExpID(loginDataExpID, loginDataToken)
 
-        localDataLogin("", "")
+    }
+
+    private fun startWebActivity(expID: String, token: String) {
+        Toast.makeText(this, "登入成功，正在載入網頁內容", Toast.LENGTH_LONG).show()
+
+        val intent: Intent = Intent(this, WebActivity::class.java).apply {
+            putExtra("EXTRA_EXP_ID", expID)
+            putExtra("EXTRA_TOKEN", token)
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    private fun startMainActivity() {
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
     }
 
     private fun localDataLogin(expID: String, token: String) {
-        Log.d("LoginActivity", "Call: localDataLogin")
         val client = HttpClient(CIO) {
             install(ContentNegotiation) {
                 json()
@@ -99,55 +114,134 @@ class LoginActivity : AppCompatActivity() {
                     append("token", token)
                 }))
             }
-            Log.d("LoginActivity", "StatusCode: ${response.status}")
             if (response.status.isSuccess()) {
                 val responseBody: ResponseBodyTokenLogin = response.body()
-                Log.d("LoginActivity", "headers: ${responseBody.headers}")
-                Log.d("LoginActivity", "status:\t${responseBody.headers.status}\nerrorMsg:\t${responseBody.headers.errorMsg}")
-//                Log.d("LoginActivity", "ResponseBody: ${response.body<String>()}")
+
+                if (responseBody.contents.isLogin) {
+                    startWebActivity(expID, token)
+                } else {
+                    Toast.makeText(this@LoginActivity, "手機登入已過期，請重新登入", Toast.LENGTH_SHORT).show()
+                    enableLoginForm()
+                }
             } else {
-                Log.d("LoginActivity", "ResponseCode: Bad")
+                Toast.makeText(this@LoginActivity, "伺服器連線失敗，請確認網路連線狀態", Toast.LENGTH_LONG).show()
+                startMainActivity()
             }
+
         }
     }
 
     private fun checkLoginDataToken(expID: String, loginDataToken: Flow<String>) {
-        Log.d("LoginActivity", "Call: checkLoginDataToken")
-        Log.d("LoginActivity", "Collecting flow: Token")
         lifecycleScope.launch {
             loginDataToken.collect { token ->
-                Log.d("LoginActivity", "Token: $token")
                 if (token.isEmpty()) {
-                    Log.d("LoginActivity", "Token: Bad")
+                    Toast.makeText(this@LoginActivity, "內部資料不存在，請輸入學號與密碼登入", Toast.LENGTH_SHORT).show()
                     enableLoginForm()
                 } else {
-                    Log.d("LoginActivity", "Token: Good")
                     localDataLogin(expID, token)
                 }
             }
         }
     }
     private fun checkLoginDataExpID(loginDataExpID: Flow<String>, loginDataToken: Flow<String>) {
-        Log.d("LoginActivity", "Call: checkLoginDataExpID")
-        Log.d("LoginActivity", "Collecting flow: ExpID")
+        Toast.makeText(this, "正在嘗試使用內部儲存資料登入...", Toast.LENGTH_SHORT).show()
+
         lifecycleScope.launch {
             loginDataExpID.collect { expID ->
-                Log.d("LoginActivity", "ExpID: $expID")
                 if (expID.isEmpty()) {
-                    Log.d("LoginActivity", "ExpID: Bad")
+                    Toast.makeText(this@LoginActivity, "內部資料不存在，請輸入學號與密碼登入", Toast.LENGTH_SHORT).show()
                     enableLoginForm()
                 } else {
-                    Log.d("LoginActivity", "ExpID: Good")
                     checkLoginDataToken(expID, loginDataToken)
                 }
             }
         }
     }
 
+    private fun updateLocalData(expID: String, token: String) {
+        lifecycleScope.launch {
+            this@LoginActivity.dataStore.edit {
+                it[LOGIN_DATA_KEY_EXP_ID] = expID
+                it[LOGIN_DATA_KEY_TOKEN] = token
+            }
+        }
+        startWebActivity(expID, token)
+    }
+
+    private fun startRegisterActivity() {
+        startActivity(Intent(this, RegisterActivity::class.java))
+        finish()
+    }
+
+    private fun formDataLogin() {
+
+        disableLoginForm()
+
+        val etStdID: EditText = findViewById(R.id.etStdId)
+        val etPassword: EditText = findViewById(R.id.etPassword)
+
+        val stdID = etStdID.text.toString()
+        val password = etPassword.text.toString()
+        if (stdID.isEmpty() or password.isEmpty()) {
+            Toast.makeText(this, "學號和密碼不得留空", Toast.LENGTH_SHORT).show()
+            enableLoginForm()
+            return
+        }
+        if (!stdID.isDigitsOnly()) {
+            Toast.makeText(this, "學號格式不正確", Toast.LENGTH_SHORT).show()
+            enableLoginForm()
+            return
+        }
+
+        val client = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        lifecycleScope.launch {
+            val response: HttpResponse = client.post("https://goal-eval-test.cyouliao.com/login_android.php") {
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody(FormDataContent(Parameters.build {
+                    append("std_id", stdID)
+                    append("password", password)
+                }))
+            }
+            if (response.status.isSuccess()) {
+                val responseBody: ResponseBodyTokenLogin = response.body()
+
+                if (responseBody.headers.status == "OK") {
+                    if (responseBody.contents.isLogin) {
+                        updateLocalData(responseBody.contents.expID, responseBody.contents.token)
+                    } else {
+                        Toast.makeText(this@LoginActivity,"登入失敗，學號或密碼不正確", Toast.LENGTH_SHORT).show()
+                        enableLoginForm()
+                    }
+                } else if (responseBody.headers.status == "ERROR_USER_NOT_REGISTERED") {
+                    Toast.makeText(this@LoginActivity, "您尚未完成帳號註冊，請先完成註冊程序", Toast.LENGTH_LONG).show()
+                    startRegisterActivity()
+                } else {
+                    Toast.makeText(this@LoginActivity, "未知錯誤，請聯絡管理人員\n錯誤訊息：${responseBody.headers.errorMsg}", Toast.LENGTH_LONG).show()
+                    enableLoginForm()
+                }
+
+            } else {
+                Toast.makeText(this@LoginActivity, "伺服器連線問題，請檢查您的網路連線狀態", Toast.LENGTH_LONG).show()
+                startMainActivity()
+            }
+
+        }
+
+    }
+
     private fun enableLoginForm() {
+
         val etStdID: EditText = findViewById(R.id.etStdId)
         val etPassword: EditText = findViewById(R.id.etPassword)
         val btnLogin: Button = findViewById(R.id.btnLogin)
+
+        btnLogin.setOnClickListener {
+            formDataLogin()
+        }
 
         etStdID.isEnabled = true
         etPassword.isEnabled = true
@@ -163,7 +257,4 @@ class LoginActivity : AppCompatActivity() {
         btnLogin.isEnabled = false
     }
 
-    private fun startWebActivity() {
-        Log.d("LoginActivity", "Starting WebActivity...")
-    }
 }
