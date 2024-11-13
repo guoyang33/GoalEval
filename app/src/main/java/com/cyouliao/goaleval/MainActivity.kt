@@ -1,9 +1,6 @@
 package com.cyouliao.goaleval
 
-import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
@@ -71,17 +68,5 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(this, LoginActivity::class.java))
 
         finish()
-    }
-}
-
-fun isNetworkConnected(context: Context): Boolean {
-    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        val network = connectivityManager.activeNetwork
-        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-        return networkCapabilities != null
-    } else {
-        val networkInfo = connectivityManager.activeNetworkInfo
-        return networkInfo != null && networkInfo.isConnected
     }
 }

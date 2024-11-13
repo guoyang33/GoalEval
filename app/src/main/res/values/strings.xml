@@ -64,4 +64,6 @@
     <string name="etRegisterStdIDHintText">學號</string>
     <string name="btnRegisterButtonText">註冊</string>
     <string name="tvRegisterPasswordHintText">密碼請設定至少8個字元</string>
+    <string name="tvLoginRegisterHintText">若尚未註冊，請點以下註冊按鈕</string>
+    <string name="btnLoginRegisterText">註冊</string>
 </resources>
